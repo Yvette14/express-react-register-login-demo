@@ -25,16 +25,16 @@ router.post('/sessions', function (req, res, next) {
     });
 });
 
-router.get('/personal', function (req, res,next) {
+router.get('/personal', function (req, res, next) {
     const token = req.cookies['token'];
     const username = getUsernameFromToken(token);
-    User.findOne({username}, function (err, user) {
+    validateToken(token, function (err, hasToken) {
         if (err) return next(err);
-        if (user !== null&&(generateToken(user.username, user.password) === token)) {
+        if (hasToken) {
             return res.json({username, greeting: 'Hello, logged user!'});
         }
-        res.sendStatus(401);
-    });
+        return res.sendStatus(401);
+    })
 });
 
 function generateToken(username, password) {
@@ -46,4 +46,24 @@ function getUsernameFromToken(token) {
     return token.substring(0, separatorIndex);
 }
 
+function validateToken(token, callback) {
+    if (token === null || token.length === 0 || !token.includes(':')) {
+        callback(null, false);
+    }
+    const username = getUsernameFromToken(token);
+    findUser(username, function (err, user) {
+        if (err) return next(err);
+        if (user) {
+            const {username, password}=user;
+            callback(null, generateToken(username, password) === token);
+        }
+    });
+}
+
+function findUser(username, callback) {
+    User.findOne({username}, function (err, user) {
+        if (err) return next(err);
+        callback(null, user);
+    });
+}
 export default router;
